@@ -191,6 +191,7 @@ class ImapNormalizer
                     'channel_type'             => 'email',
                     'conversation_external_id' => $convExtId,
                     'contact_email'            => $contactEmail,
+                    'is_outbound'              => $isSent,
                 ],
             ];
 

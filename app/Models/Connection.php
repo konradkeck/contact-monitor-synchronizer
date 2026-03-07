@@ -115,7 +115,11 @@ class Connection extends Model
     public function scheduleLabel(): string
     {
         if ($this->type === 'metricscube') {
-            return 'Runs with WHMCS';
+            $whmcsId   = $this->settings['whmcs_connection_id'] ?? null;
+            $whmcsSlug = $whmcsId
+                ? static::where('id', $whmcsId)->value('system_slug')
+                : null;
+            return 'Runs with ' . ($whmcsSlug ?? 'WHMCS');
         }
 
         if (!$this->schedule_enabled || !$this->schedule_cron) {
