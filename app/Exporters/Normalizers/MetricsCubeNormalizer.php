@@ -2,18 +2,18 @@
 
 namespace App\Exporters\Normalizers;
 
-use App\Exporters\SalesOsClient;
+use App\Exporters\ContactMonitorClient;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Normalizes MetricsCube activity data to SalesOS canonical items.
+ * Normalizes MetricsCube activity data to Contact Monitor canonical items.
  *
  * Emits:
  *   activity — one per MetricsCube activity entry, linked to the WHMCS account
  */
 class MetricsCubeNormalizer
 {
-    /** MetricsCube TYPE → SalesOS activity_type */
+    /** MetricsCube TYPE → Contact Monitor activity_type */
     private const TYPE_MAP = [
         'Paid Invoice'        => 'payment',
         'New Transaction'     => 'payment',
@@ -93,7 +93,7 @@ class MetricsCubeNormalizer
                 ];
 
                 yield [
-                    'item'       => SalesOsClient::buildItem('metricscube', $this->systemSlug, 'activity', 'upsert', $externalId, $actPayload),
+                    'item'       => ContactMonitorClient::buildItem('metricscube', $this->systemSlug, 'activity', 'upsert', $externalId, $actPayload),
                     'updated_at' => $row->updated_at,
                 ];
             }

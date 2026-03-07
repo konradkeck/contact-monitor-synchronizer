@@ -1,4 +1,4 @@
-# Mielonka — Data Importer
+# Contact Monitor Synchronizer — Data Importer
 
 Laravel-based data importer. Pulls raw records from WHMCS, Gmail (via OAuth), IMAP mailboxes, and MetricsCube into local `source_*` tables with cursor-based checkpointing so imports can be interrupted and resumed. A full admin panel provides connection management, real-time job logs, and data stats.
 
@@ -50,9 +50,9 @@ APP_URL=http://localhost:8080
 DB_CONNECTION=pgsql
 DB_HOST=db
 DB_PORT=5432
-DB_DATABASE=mielonka
-DB_USERNAME=mielonka
-DB_PASSWORD=mielonka
+DB_DATABASE=contact-monitor-synchronizer
+DB_USERNAME=contact-monitor-synchronizer
+DB_PASSWORD=contact-monitor-synchronizer
 
 SESSION_DRIVER=database
 CACHE_STORE=database
@@ -378,7 +378,7 @@ A browser window opens — select your domain.
 
 **2. Create a named tunnel:**
 ```bash
-cloudflared tunnel create mielonka-oauth
+cloudflared tunnel create contact-monitor-synchronizer-oauth
 ```
 Note the **Tunnel ID** (a UUID) printed in the output.
 
@@ -397,13 +397,13 @@ Replace `<TUNNEL_ID>`, the hostname, and the local port (8080 matches the docker
 
 **4. Route DNS:**
 ```bash
-cloudflared tunnel route dns mielonka-oauth oauth.your-subdomain.example.com
+cloudflared tunnel route dns contact-monitor-synchronizer-oauth oauth.your-subdomain.example.com
 ```
 This creates a CNAME in Cloudflare DNS automatically.
 
 **5. Start the tunnel:**
 ```bash
-cloudflared tunnel run mielonka-oauth
+cloudflared tunnel run contact-monitor-synchronizer-oauth
 ```
 Keep this running while going through the OAuth flow.
 
@@ -528,7 +528,7 @@ The importer polls the Discord REST API (no gateway, no webhooks). On each run i
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and click **New Application**.
 2. Under **Bot**, click **Add Bot** → confirm.
-3. Copy the **Token** — you will paste it into the Mielonka connection form.
+3. Copy the **Token** — you will paste it into the Contact Monitor Synchronizer connection form.
 4. Under **Privileged Gateway Intents**, enable **Message Content Intent** (required to read message bodies).
 5. Under **OAuth2 → URL Generator**, select scopes: `bot`. Select bot permissions:
    - **Read Messages / View Channels**
@@ -545,7 +545,7 @@ Discord IDs are not visible by default. Enable **Developer Mode** first:
 
 Paste these into the allowlist fields in the connection form (one ID per line).
 
-### Step 3 — Configure the connection in Mielonka
+### Step 3 — Configure the connection in Contact Monitor Synchronizer
 
 1. In the admin panel, go to **Connections → New Connection**.
 2. Select type **Discord**, enter a display name and system slug.
@@ -631,7 +631,7 @@ For each private channel you want to import:
 
 The bot will only see channels it has been invited to. Public channels are visible automatically once the bot is installed to the workspace.
 
-### Step 3 — Configure the connection in Mielonka
+### Step 3 — Configure the connection in Contact Monitor Synchronizer
 
 1. In the admin panel, go to **Connections → New Connection**.
 2. Select type **Slack**, enter a display name and system slug.

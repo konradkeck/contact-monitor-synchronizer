@@ -11,21 +11,21 @@ use App\Models\Connection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-class SalesOsExporter
+class ContactMonitorExporter
 {
     private const BATCH_SIZE = 250;
 
-    private SalesOsClient $client;
+    private ContactMonitorClient $client;
     private mixed $log;
 
     public function __construct(callable $log)
     {
-        $this->client = new SalesOsClient();
+        $this->client = new ContactMonitorClient();
         $this->log    = $log;
     }
 
     /**
-     * Export all active connections to SalesOS.
+     * Export all active connections to Contact Monitor.
      */
     public function exportAll(): void
     {

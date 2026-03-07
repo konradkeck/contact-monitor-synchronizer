@@ -2,11 +2,11 @@
 
 namespace App\Exporters\Normalizers;
 
-use App\Exporters\SalesOsClient;
+use App\Exporters\ContactMonitorClient;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Normalizes Discord source data to SalesOS canonical items.
+ * Normalizes Discord source data to Contact Monitor canonical items.
  *
  * Only exports channels where @everyone (role id = guild_id) has VIEW_CHANNEL (bit 1024) denied.
  * This filters out stale public-channel data that may exist in source_discord_channels
@@ -66,7 +66,7 @@ class DiscordNormalizer
             ];
 
             yield [
-                'item'       => SalesOsClient::buildItem('discord', $this->systemSlug, 'conversation', 'upsert', $row->channel_id, $convPayload),
+                'item'       => ContactMonitorClient::buildItem('discord', $this->systemSlug, 'conversation', 'upsert', $row->channel_id, $convPayload),
                 'updated_at' => $row->updated_at,
             ];
         }
@@ -95,7 +95,7 @@ class DiscordNormalizer
             ];
 
             yield [
-                'item'       => SalesOsClient::buildItem('discord', $this->systemSlug, 'identity', 'upsert', $row->user_id, $identPayload),
+                'item'       => ContactMonitorClient::buildItem('discord', $this->systemSlug, 'identity', 'upsert', $row->user_id, $identPayload),
                 'updated_at' => $row->updated_at,
             ];
         }
@@ -150,7 +150,7 @@ class DiscordNormalizer
             ];
 
             yield [
-                'item'       => SalesOsClient::buildItem('discord', $this->systemSlug, 'activity', 'upsert', $extId, $activityPayload),
+                'item'       => ContactMonitorClient::buildItem('discord', $this->systemSlug, 'activity', 'upsert', $extId, $activityPayload),
                 'updated_at' => $bucket->max_updated_at,
             ];
         }
@@ -191,7 +191,7 @@ class DiscordNormalizer
                     'avatar'        => $author['avatar'] ?? null,
                 ];
                 yield [
-                    'item'       => SalesOsClient::buildItem('discord', $this->systemSlug, 'identity', 'upsert', $authorId, $identPayload),
+                    'item'       => ContactMonitorClient::buildItem('discord', $this->systemSlug, 'identity', 'upsert', $authorId, $identPayload),
                     'updated_at' => $row->updated_at,
                 ];
             }
@@ -237,7 +237,7 @@ class DiscordNormalizer
             ];
 
             yield [
-                'item'       => SalesOsClient::buildItem('discord', $this->systemSlug, 'message', $action, $row->message_id, $msgPayload),
+                'item'       => ContactMonitorClient::buildItem('discord', $this->systemSlug, 'message', $action, $row->message_id, $msgPayload),
                 'updated_at' => $row->updated_at,
             ];
         }

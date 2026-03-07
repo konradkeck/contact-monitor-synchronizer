@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Exporters\SalesOsExporter;
+use App\Exporters\ContactMonitorExporter;
 use App\Models\Connection;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -25,11 +25,11 @@ class SyncToSalesOs implements ShouldQueue
 
         $log = function (string $message, string $level = 'info'): void {
             Log::channel('stack')->{$level === 'error' ? 'error' : ($level === 'warning' ? 'warning' : 'info')}(
-                "[SalesOS sync] {$message}"
+                "[Contact Monitor sync] {$message}"
             );
         };
 
-        $exporter = new SalesOsExporter($log);
+        $exporter = new ContactMonitorExporter($log);
         $exporter->exportConnection($connection);
     }
 

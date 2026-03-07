@@ -2,11 +2,11 @@
 
 namespace App\Exporters\Normalizers;
 
-use App\Exporters\SalesOsClient;
+use App\Exporters\ContactMonitorClient;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Normalizes WHMCS source data to SalesOS canonical items.
+ * Normalizes WHMCS source data to Contact Monitor canonical items.
  *
  * Emits:
  *   account      — one per whmcs_clients record (includes services in meta)
@@ -88,7 +88,7 @@ class WhmcsNormalizer
             ]);
 
             yield [
-                'item'       => SalesOsClient::buildItem('whmcs', $this->systemSlug, 'account', 'upsert', $clientId, $payload),
+                'item'       => ContactMonitorClient::buildItem('whmcs', $this->systemSlug, 'account', 'upsert', $clientId, $payload),
                 'updated_at' => $row->updated_at,
             ];
 
@@ -96,7 +96,7 @@ class WhmcsNormalizer
             if (!empty($record['email'])) {
                 $displayName = trim(($record['firstname'] ?? '') . ' ' . ($record['lastname'] ?? '')) ?: null;
                 yield [
-                    'item'       => SalesOsClient::buildItem('whmcs', $this->systemSlug, 'identity', 'upsert', $record['email'], array_filter([
+                    'item'       => ContactMonitorClient::buildItem('whmcs', $this->systemSlug, 'identity', 'upsert', $record['email'], array_filter([
                         'identity_type' => 'email',
                         'value'         => $record['email'],
                         'display_name'  => $displayName,
@@ -131,7 +131,7 @@ class WhmcsNormalizer
             $displayName = trim(($record['firstname'] ?? '') . ' ' . ($record['lastname'] ?? '')) ?: null;
 
             yield [
-                'item'       => SalesOsClient::buildItem('whmcs', $this->systemSlug, 'identity', 'upsert', $record['email'], array_filter([
+                'item'       => ContactMonitorClient::buildItem('whmcs', $this->systemSlug, 'identity', 'upsert', $record['email'], array_filter([
                     'identity_type' => 'email',
                     'value'         => $record['email'],
                     'display_name'  => $displayName,
@@ -180,7 +180,7 @@ class WhmcsNormalizer
 
                 $emittedConvs[$ticketId] = true;
                 yield [
-                    'item'       => SalesOsClient::buildItem('whmcs', $this->systemSlug, 'conversation', 'upsert', "ticket_{$ticketId}", $convPayload),
+                    'item'       => ContactMonitorClient::buildItem('whmcs', $this->systemSlug, 'conversation', 'upsert', "ticket_{$ticketId}", $convPayload),
                     'updated_at' => $row->updated_at,
                 ];
             }
@@ -217,13 +217,13 @@ class WhmcsNormalizer
                     'display_name'  => $record['sender_name'] ?? null,
                 ];
                 yield [
-                    'item'       => SalesOsClient::buildItem('whmcs', $this->systemSlug, 'identity', 'upsert', $record['sender_email'], $identPayload),
+                    'item'       => ContactMonitorClient::buildItem('whmcs', $this->systemSlug, 'identity', 'upsert', $record['sender_email'], $identPayload),
                     'updated_at' => $row->updated_at,
                 ];
             }
 
             yield [
-                'item'       => SalesOsClient::buildItem('whmcs', $this->systemSlug, 'message', 'upsert', $msgId, $msgPayload),
+                'item'       => ContactMonitorClient::buildItem('whmcs', $this->systemSlug, 'message', 'upsert', $msgId, $msgPayload),
                 'updated_at' => $row->updated_at,
             ];
         }

@@ -28,9 +28,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    'salesos' => [
-        'ingest_url'    => env('SALESOS_INGEST_URL', 'http://127.0.0.1:8090'),
-        'ingest_secret' => env('SALESOS_INGEST_SECRET', ''),
+    'contact_monitor' => [
+        'ingest_url'    => env('CONTACT_MONITOR_INGEST_URL', 'http://127.0.0.1:8090'),
+        'ingest_secret' => env('CONTACT_MONITOR_INGEST_SECRET', ''),
     ],
 
     'slack' => [

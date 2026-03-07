@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 class ImportGmailMessages extends Command
 {
     protected $signature = 'gmail:import-messages
-        {system        : The system name (e.g. salesos)}
+        {system        : The system name (e.g. contact-monitor)}
         {subject_email : The Gmail account to import from}
         {--query=      : Gmail search query (e.g. "in:inbox")}
         {--page-size=100 : Messages per page}

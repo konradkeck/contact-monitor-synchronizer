@@ -2,17 +2,17 @@
 
 namespace App\Console\Commands;
 
-use App\Exporters\SalesOsExporter;
+use App\Exporters\ContactMonitorExporter;
 use App\Models\Connection;
 use Illuminate\Console\Command;
 
-class SalesOsSync extends Command
+class ContactMonitorSync extends Command
 {
-    protected $signature = 'salesos:sync
+    protected $signature = 'contact-monitor:sync
         {--connection= : Sync a single connection by system_slug (default: all active)}
         {--reset-cursor : Reset the export cursor (re-export everything from the beginning)}';
 
-    protected $description = 'Export data from Mielonka sources to SalesOS via ingest API';
+    protected $description = 'Export data from Mielonka sources to Contact Monitor via ingest API';
 
     public function handle(): int
     {
@@ -38,14 +38,14 @@ class SalesOsSync extends Command
         };
 
         try {
-            $exporter = new SalesOsExporter($log);
+            $exporter = new ContactMonitorExporter($log);
 
             if ($slug) {
                 $connection = Connection::where('system_slug', $slug)->firstOrFail();
                 $log("Single connection mode: {$connection->type}/{$slug}");
                 $exporter->exportConnection($connection);
             } else {
-                $log('Exporting all active connections to SalesOS...');
+                $log('Exporting all active connections to Contact Monitor...');
                 $exporter->exportAll();
             }
 

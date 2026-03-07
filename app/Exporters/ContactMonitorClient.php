@@ -5,26 +5,26 @@ namespace App\Exporters;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class SalesOsClient
+class ContactMonitorClient
 {
     private string $url;
     private string $secret;
 
     public function __construct()
     {
-        $this->url    = rtrim(config('services.salesos.ingest_url', ''), '/');
-        $this->secret = config('services.salesos.ingest_secret', '');
+        $this->url    = rtrim(config('services.contact_monitor.ingest_url', ''), '/');
+        $this->secret = config('services.contact_monitor.ingest_secret', '');
 
         if (empty($this->url)) {
-            throw new \RuntimeException('SALESOS_INGEST_URL is not configured.');
+            throw new \RuntimeException('CONTACT_MONITOR_INGEST_URL is not configured.');
         }
         if (empty($this->secret)) {
-            throw new \RuntimeException('SALESOS_INGEST_SECRET is not configured.');
+            throw new \RuntimeException('CONTACT_MONITOR_INGEST_SECRET is not configured.');
         }
     }
 
     /**
-     * Send a batch to SalesOS.
+     * Send a batch to Contact Monitor.
      * Retries up to 3 times on server errors.
      *
      * @return array{processed: int, skipped: int, failed: int}
@@ -48,22 +48,22 @@ class SalesOsClient
                 }
 
                 throw new \RuntimeException(
-                    'SalesOS returned ok=false: ' . ($body['error'] ?? 'unknown')
+                    'Contact Monitor returned ok=false: ' . ($body['error'] ?? 'unknown')
                 );
             }
 
             if ($response->status() === 401) {
-                throw new \RuntimeException('SalesOS auth failed (401). Check SALESOS_INGEST_SECRET.');
+                throw new \RuntimeException('Contact Monitor auth failed (401). Check CONTACT_MONITOR_INGEST_SECRET.');
             }
 
             if ($response->status() === 422) {
                 throw new \RuntimeException(
-                    'SalesOS rejected batch (422): ' . substr($response->body(), 0, 300)
+                    'Contact Monitor rejected batch (422): ' . substr($response->body(), 0, 300)
                 );
             }
 
             // 5xx or network error → retry
-            Log::warning("SalesOS ingest attempt {$attempt}/{$maxTries} failed (HTTP {$response->status()}), retrying...");
+            Log::warning("Contact Monitor ingest attempt {$attempt}/{$maxTries} failed (HTTP {$response->status()}), retrying...");
 
             if ($attempt < $maxTries) {
                 sleep($attempt * 2);
@@ -71,7 +71,7 @@ class SalesOsClient
         }
 
         throw new \RuntimeException(
-            "SalesOS ingest failed after {$maxTries} attempts."
+            "Contact Monitor ingest failed after {$maxTries} attempts."
         );
     }
 

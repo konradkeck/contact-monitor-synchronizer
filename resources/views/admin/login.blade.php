@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mielonka — Login</title>
+    <title>contact-monitor-synchronizer — Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-950 min-h-screen flex items-center justify-center">
 
 <div class="w-full max-w-sm">
     <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-white tracking-tight">Mielonka</h1>
+        <h1 class="text-2xl font-bold text-white tracking-tight">contact-monitor-synchronizer</h1>
         <p class="text-gray-500 text-sm mt-1">Admin Panel</p>
     </div>
 

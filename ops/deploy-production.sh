@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="/srv/mielonka"
+REPO_DIR="/srv/contact-monitor-synchronizer"
 SSH_HOST="production"
 
 echo "[1/5] Local: commit check"

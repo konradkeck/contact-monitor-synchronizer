@@ -75,7 +75,7 @@ class RunConnection implements ShouldQueue
 
             $run->markCompleted();
 
-            // Sync freshly imported data to SalesOS
+            // Sync freshly imported data to Contact Monitor
             SyncToSalesOs::dispatch($this->connectionId);
 
             if ($siblingRun) {

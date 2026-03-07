@@ -2,11 +2,11 @@
 
 namespace App\Exporters\Normalizers;
 
-use App\Exporters\SalesOsClient;
+use App\Exporters\ContactMonitorClient;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Normalizes Slack source data to SalesOS canonical items.
+ * Normalizes Slack source data to Contact Monitor canonical items.
  *
  * Conversations: source_slack_channels (one per channel)
  * Messages:      source_slack_messages (one per message)
@@ -51,7 +51,7 @@ class SlackNormalizer
             ];
 
             yield [
-                'item'       => SalesOsClient::buildItem('slack', $this->systemSlug, 'conversation', 'upsert', $row->channel_id, $convPayload),
+                'item'       => ContactMonitorClient::buildItem('slack', $this->systemSlug, 'conversation', 'upsert', $row->channel_id, $convPayload),
                 'updated_at' => $row->updated_at,
             ];
         }
@@ -109,7 +109,7 @@ class SlackNormalizer
             ];
 
             yield [
-                'item'       => SalesOsClient::buildItem('slack', $this->systemSlug, 'activity', 'upsert', $extId, $activityPayload),
+                'item'       => ContactMonitorClient::buildItem('slack', $this->systemSlug, 'activity', 'upsert', $extId, $activityPayload),
                 'updated_at' => $bucket->max_updated_at,
             ];
         }
@@ -164,7 +164,7 @@ class SlackNormalizer
                     'avatar'        => $userProfile?->avatar_url ?? null,
                 ];
                 yield [
-                    'item'       => SalesOsClient::buildItem('slack', $this->systemSlug, 'identity', 'upsert', $userId, $identPayload),
+                    'item'       => ContactMonitorClient::buildItem('slack', $this->systemSlug, 'identity', 'upsert', $userId, $identPayload),
                     'updated_at' => $row->updated_at,
                 ];
             }
@@ -202,7 +202,7 @@ class SlackNormalizer
             ];
 
             yield [
-                'item'       => SalesOsClient::buildItem('slack', $this->systemSlug, 'message', $action, $ts, $msgPayload),
+                'item'       => ContactMonitorClient::buildItem('slack', $this->systemSlug, 'message', $action, $ts, $msgPayload),
                 'updated_at' => $row->updated_at,
             ];
         }

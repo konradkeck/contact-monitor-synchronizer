@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mielonka — Admin</title>
+    <title>contact-monitor-synchronizer — Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -37,7 +37,7 @@
 <header class="border-b border-gray-800 bg-gray-900/50 sticky top-0 z-10 backdrop-blur">
     <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         <div class="flex items-center gap-3">
-            <span class="font-bold text-white text-lg">Mielonka</span>
+            <span class="font-bold text-white text-lg">contact-monitor-synchronizer</span>
             <span class="text-gray-600 text-sm">Admin Panel</span>
         </div>
         <form method="POST" action="{{ route('admin.logout') }}">

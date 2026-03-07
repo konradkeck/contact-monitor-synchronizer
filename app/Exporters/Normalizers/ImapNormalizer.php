@@ -2,11 +2,11 @@
 
 namespace App\Exporters\Normalizers;
 
-use App\Exporters\SalesOsClient;
+use App\Exporters\ContactMonitorClient;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Normalizes IMAP source data to SalesOS canonical items.
+ * Normalizes IMAP source data to Contact Monitor canonical items.
  *
  * Threading: uses References (first entry = thread root) → In-Reply-To → own message_id.
  * Direction: Sent-folder messages → 'internal'; inbox → 'customer'.
@@ -72,14 +72,14 @@ class ImapNormalizer
             ];
 
             yield [
-                'item'       => SalesOsClient::buildItem('imap', $this->systemSlug, 'conversation', 'upsert', $convExtId, $convPayload),
+                'item'       => ContactMonitorClient::buildItem('imap', $this->systemSlug, 'conversation', 'upsert', $convExtId, $convPayload),
                 'updated_at' => $row->updated_at,
             ];
 
             // ── Sender identity ────────────────────────────────────────────────
             if ($fromEmail) {
                 yield [
-                    'item'       => SalesOsClient::buildItem('imap', $this->systemSlug, 'identity', 'upsert', $fromEmail, [
+                    'item'       => ContactMonitorClient::buildItem('imap', $this->systemSlug, 'identity', 'upsert', $fromEmail, [
                         'identity_type' => 'email',
                         'value'         => $fromEmail,
                         'display_name'  => $fromName ?: null,
@@ -98,7 +98,7 @@ class ImapNormalizer
                 $recipName  = $this->extractName($recipHeader);
                 if ($recipEmail) {
                     yield [
-                        'item'       => SalesOsClient::buildItem('imap', $this->systemSlug, 'identity', 'upsert', $recipEmail, [
+                        'item'       => ContactMonitorClient::buildItem('imap', $this->systemSlug, 'identity', 'upsert', $recipEmail, [
                             'identity_type' => 'email',
                             'value'         => $recipEmail,
                             'display_name'  => $recipName ?: null,
@@ -131,7 +131,7 @@ class ImapNormalizer
             ];
 
             yield [
-                'item'       => SalesOsClient::buildItem('imap', $this->systemSlug, 'message', 'upsert', $msgExtId, $msgPayload),
+                'item'       => ContactMonitorClient::buildItem('imap', $this->systemSlug, 'message', 'upsert', $msgExtId, $msgPayload),
                 'updated_at' => $row->updated_at,
             ];
         }
@@ -195,7 +195,7 @@ class ImapNormalizer
             ];
 
             yield [
-                'item'       => SalesOsClient::buildItem('imap', $this->systemSlug, 'activity', 'upsert', $msgExtId, $activityPayload),
+                'item'       => ContactMonitorClient::buildItem('imap', $this->systemSlug, 'activity', 'upsert', $msgExtId, $activityPayload),
                 'updated_at' => $row->updated_at,
             ];
         }
