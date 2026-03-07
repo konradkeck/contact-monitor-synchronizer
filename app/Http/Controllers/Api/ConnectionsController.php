@@ -408,6 +408,7 @@ class ConnectionsController extends Controller
             'next_run_at'           => $c->nextRunDate()?->format('Y-m-d H:i:s'),
             'next_full_run_at'      => $c->nextFullRunDate()?->format('Y-m-d H:i:s'),
             'missing_credentials'   => $c->hasCredentials(),
+            'settings'              => $c->settings ?? [],
             'created_at'            => $c->created_at?->toIso8601String(),
             'updated_at'            => $c->updated_at?->toIso8601String(),
             'latest_run'            => $latestRun ? $this->formatRun($latestRun) : null,
