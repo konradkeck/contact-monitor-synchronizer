@@ -1,0 +1,138 @@
+# Mielonka — project knowledge for new Claude sessions
+
+## What this project is
+
+Laravel 11 application that imports raw data from external sources (WHMCS, Gmail, IMAP, MetricsCube) into local PostgreSQL `source_*` tables. A full admin panel manages connections, triggers jobs, and streams live logs. Deployed via Docker Compose on a production server.
+
+## Stack
+
+- **PHP 8.3** / Laravel 11, queue driver: database, session: database, cache: database
+- **PostgreSQL** (container `db`, port 5433 external / 5432 internal)
+- **Alpine.js** (no build step) for admin UI reactivity
+- **Tailwind CSS** loaded from CDN
+- Docker Compose: `app` (PHP + FrankenPHP on :8080), `db`, `worker`, `scheduler`
+
+## Source types and importers
+
+| Type | Importer class | Source table | Checkpoint key pattern |
+|---|---|---|---|
+| `whmcs` | `app/Importers/Whmcs/` (4 classes) | `source_whmcs_*` | `source_system='salesos', importer='whmcs_api', entity='clients'` etc |
+| `gmail` | `app/Importers/Gmail/ImportGmailMessages.php` | `source_gmail_messages` | `ImportCheckpointStore` with key `gmail\|messages\|{system}\|{email}\|{query}` |
+| `imap` | `app/Importers/Imap/ImportImapMessages.php` | `source_imap_messages` | `ImportCheckpointStore` with key `imap\|messages\|{account}\|{mailbox}` |
+| `metricscube` | `app/Importers/Whmcs/ImportMetricsCubeClients.php` | `source_metricscube_client_activities` | standard checkpoint |
+
+## Key architectural patterns
+
+### Checkpointing
+`app/Support/ImportCheckpointStore.php` — generic key→JSON store backed by `import_checkpoints` table. Uses `upsert()` with `source_system='checkpoint_store', importer='v1', entity='v1', cursor_type=md5($key)`. Checkpoint key is the full semantic key (system, mailbox, query, etc.).
+
+### Hash-based change detection
+Every importer computes a SHA-256 `row_hash` over the sanitised payload JSON. Rows are inserted on first seen, updated only when hash changes, skipped otherwise. This produces insert/update/skip counts in logs.
+
+### Gmail volatile field stripping
+Gmail API returns two fields that change on every API call even if message content is unchanged:
+- `historyId` — at the top level of the message object → `unset($payloadForHash['historyId'])`
+- `attachmentId` — **inside `payload.parts[i].body`** (NOT at top level) → `stripVolatileFields()` is called on `$payloadForHash['payload']` (the nested payload object), not the top-level message
+
+```php
+// CORRECT:
+if (isset($payloadForHash['payload'])) {
+    $payloadForHash['payload'] = $this->stripVolatileFields($payloadForHash['payload']);
+}
+// WRONG (was a bug — top-level message has no 'body' key):
+// $payloadForHash = $this->stripVolatileFields($payloadForHash);
+```
+
+Gmail API message structure:
+```json
+{
+  "id": "...", "threadId": "...", "historyId": "...", "internalDate": "...",
+  "labelIds": [...], "snippet": "...", "sizeEstimate": ...,
+  "payload": {
+    "partId": "", "mimeType": "multipart/mixed", "headers": [...],
+    "body": {"size": 0},
+    "parts": [
+      {"mimeType": "text/plain", "body": {"data": "..."}},
+      {"mimeType": "application/pdf",  "body": {"attachmentId": "ANGjdJ...", "size": ...}}
+    ]
+  }
+}
+```
+
+### Gmail concurrent fetching
+`ImportGmailMessages::fetchConcurrently()` uses `Http::pool()` to fetch all messages on a page in parallel. One `messages.list` request → N concurrent `messages.get?format=full` requests.
+
+### Jobs
+`app/Jobs/RunConnection.php` — dispatches any connection type. Creates `ConnectionRun` row, buffers log lines to JSONB column every 10 lines or 3 seconds, marks run completed/failed.
+
+`app/Console/Commands/RunScheduledConnections.php` — runs every minute via scheduler container, checks cron expressions, dispatches jobs for due connections (skips if already pending/running).
+
+### IMAP UID search
+Uses `imap_search($mbox, 'UID N:999999999', SE_UID)` (NOT `N:*`) to avoid RFC 3501 edge case where `*` equals current max UID and some servers return already-seen messages.
+
+## Admin panel
+
+**Routes prefix:** `/admin` (auth middleware: `admin.auth`)
+**Controller:** `app/Http/Controllers/Admin/ConnectionController.php`
+**Views:** `resources/views/admin/`
+
+### Key admin endpoints
+
+| Method | Route | Action |
+|---|---|---|
+| GET | `/admin/connections` | index (connections list) |
+| POST | `/admin/connections/{id}/run` | trigger run (returns `{run_id, already_active}`) |
+| GET | `/admin/connections/runs/{run}/logs` | poll logs (returns `{log_lines, status}`) |
+| GET | `/admin/connections/runs/{run}/status` | poll status only |
+| GET | `/admin/connections/{id}/runs` | run history (last 50) |
+| POST | `/admin/connections/{id}/stop` | cancel run |
+| POST | `/admin/connections/{id}/duplicate` | duplicate connection |
+| POST | `/admin/connections/kill-all` | cancel all active runs |
+
+### UI (Alpine.js patterns)
+- `adminPanel()` — main component on connections index: manages modal, run/stop/delete/kill-all
+- `connRow(connId, runId, initialStatus)` — per-row component: polls status every 4s when active; listens for `run-started-event` on `window` to update badge reactively when `triggerRun` starts a new run
+- `connectSSE(runId)` — polls `/runs/{runId}/logs` every 2s; reloads page 2s after run completes/fails; interval survives modal close (so page reloads even if user closes the popup)
+- `viewLogs()` / `selectRun()` — both start `connectSSE` if fetched status is pending/running
+- Double-click guard in `triggerRun`: `_launching` flag; server-side dedup returns existing run ID if already active
+
+### Google OAuth flow
+`app/Http/Controllers/GoogleOAuthController.php`
+- `GET /google/auth/{system}?email=` → redirects to Google consent page
+- `GET /google/callback/{system}` → exchanges code, stores encrypted refresh_token in `oauth_google_tokens`
+- `app/Support/GoogleOAuthConfig.php` — reads per-connection OAuth credentials from DB
+- Token stored: `oauth_google_tokens(system, subject_email, refresh_token[encrypted], updated_at)`
+
+## Database
+
+### Important migrations
+- `2026_02_22_999999_reset_pgsql_sequences.php` — fixes PostgreSQL sequences out of sync after SQLite→PostgreSQL migration. Uses a PL/pgSQL DO block to `setval(seq, MAX(id))` for every table that has an `id` column (safely skips tables without `id` like `password_reset_tokens`).
+- `2026_02_23_000001_create_connections_table.php` — `connections` table
+- `2026_02_23_000002_create_connection_runs_table.php` — `connection_runs` table
+
+### Credentials storage
+All connection credentials (API keys, passwords, OAuth secrets) are stored as JSONB in `connections.settings`. NOT in `.env`. The job (`RunConnection`) reads settings and injects them into the process environment so importers pick them up via `env()` / config helpers.
+
+## Deployment
+
+```bash
+./ops/deploy-production.sh
+# or manually:
+git push && ssh root@server 'cd /srv/mielonka && git pull && docker compose exec app php artisan migrate --force && docker compose restart worker scheduler'
+```
+
+Production server: `root@n8n` (VPS), app at `/srv/mielonka`.
+
+## Common pitfalls
+
+1. **Gmail keeps "updating" same messages every run** — almost always caused by a volatile field being included in the hash. Check `historyId` (top-level) and `attachmentId` (inside `payload.parts[i].body`). Strip BEFORE hashing.
+
+2. **PostgreSQL sequence out of sync** — happens after importing data with explicit IDs. Run `php artisan migrate` to apply the sequence reset migration, or manually: `SELECT setval(pg_get_serial_sequence('table', 'id'), MAX(id)) FROM table;`
+
+3. **IMAP "no new messages" on every run (correct behaviour)** — if no new emails have arrived since last sync, this is expected. The checkpoint stores `last_uid` and searches `UID (last+1):999999999`.
+
+4. **Google OAuth "no refresh_token"** — account was previously authorized. Revoke at myaccount.google.com/permissions, then re-authorize.
+
+5. **Connection already active (double dispatch)** — `run()` controller checks for existing pending/running run and returns `already_active: true` with the existing run ID instead of dispatching a new job.
+
+6. **Migration rollback surprises** — `migrate:rollback` rolls back the LAST SUCCESSFUL migration, not the failed one. If a migration fails partway, you may need to manually clean up before re-running.

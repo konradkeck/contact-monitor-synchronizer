@@ -1,0 +1,51 @@
+services:
+  app:
+    build: .
+    container_name: mielonka_app
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+    ports:
+      - "8080:8000"
+    environment:
+      PHP_CLI_SERVER_WORKERS: 16
+    depends_on:
+      - db
+
+  worker:
+    build: .
+    container_name: mielonka_worker
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=1", "--max-time=3600"]
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    container_name: mielonka_scheduler
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: ["sh", "-c", "while true; do php artisan schedule:run --no-interaction; sleep 60; done"]
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    container_name: mielonka_db
+    environment:
+      POSTGRES_DB: mielonka
+      POSTGRES_USER: mielonka
+      POSTGRES_PASSWORD: mielonka
+    volumes:
+      - mielonka_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+volumes:
+  mielonka_pgdata:

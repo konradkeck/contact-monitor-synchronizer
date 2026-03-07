@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+set -eu
+
+case "${1:-}" in
+  exec)
+    shift
+    docker compose exec app "$@"
+    ;;
+  *)
+    echo "Usage:"
+    echo "  ./bin/mielonka exec composer install"
+    echo "  ./bin/mielonka exec php artisan -V"
+    exit 1
+    ;;
+esac

@@ -1,0 +1,157 @@
+# Mielonka — Project Memory
+
+## Co to jest
+Laravel 11 aplikacja do importu danych z zewnętrznych źródeł do własnej bazy PostgreSQL.
+Źródła: WHMCS, Gmail (OAuth), IMAP, MetricsCube.
+Panel admina do zarządzania "connection" (konfiguracja importera) i podglądu logów.
+
+## Stack
+- PHP 8.3 / Laravel 11
+- PostgreSQL
+- Alpine.js + Tailwind CSS (dark theme, no Vite build — CDN)
+- Queue: database driver (`php artisan queue:work`)
+- Scheduler: `php artisan connections:run-scheduled` co minutę z crona
+
+## Uruchamianie lokalnie
+```bash
+php artisan serve        # dev server
+php artisan queue:work   # worker kolejki
+```
+Admin login: hasło z env `ADMIN_PASSWORD` (domyślnie `admin` jeśli brak)
+Panel: `http://localhost:8000/admin/connections`
+
+---
+
+## Architektura
+
+### Connections (główna jednostka konfiguracji)
+Tabela `connections`:
+- `type`: `whmcs | gmail | imap | metricscube`
+- `system_slug`: unikalny identyfikator (np. `dev6`)
+- `settings`: JSON z credentialami i parametrami
+- `schedule_enabled` + `schedule_cron`: harmonogram **partial** sync (co N minut)
+- `schedule_full_enabled` + `schedule_full_cron`: harmonogram **full** sync (np. raz dziennie)
+- `is_active`: czy scheduler go odpala
+
+### Full vs Partial sync
+- **Partial**: tylko nowe dane od ostatniej synchronizacji
+  - Gmail: dodaje `after:YYYY/MM/DD` do query; checkpoint w `import_checkpoints` key=`gmail|partial_since|{system}|{email}`
+  - IMAP: `UID {last+1}:999999999`; checkpoint key=`imap|messages|{account}|{mailbox}`
+  - Fallback: jeśli brak checkpointu → zachowuje się jak full
+- **Full**: skanuje wszystko od początku
+  - Gmail: query bez filtra daty
+  - IMAP: `ALL` (ignoruje last_uid checkpoint), ale po sync aktualizuje checkpoint
+
+### ConnectionRun
+Tabela `connection_runs`: log każdego uruchomienia
+- `triggered_by`: `manual:partial | manual:full | scheduler:partial | scheduler:full`
+- `log_lines`: JSON array `[{t, level, msg}]`
+- `status`: `pending | running | completed | failed`
+
+### Jobs
+`App\Jobs\RunConnection(connectionId, runId, mode='partial')`
+- `mode` przekazywany do importerów
+- WHMCS tworzy automatycznie sibling run dla MetricsCube jeśli jest zlinkowane
+
+---
+
+## Kluczowe pliki
+
+### Importery
+- `app/Importers/Gmail/ImportGmailMessages.php` — Gmail, Batch API, partial/full
+- `app/Importers/Imap/ImportImapMessages.php` — IMAP, UID-based, partial/full
+- `app/Importers/Whmcs/ImportWhmcs{Clients,Contacts,Services,Tickets}.php`
+- `app/Support/ImportCheckpointStore.php` — checkpoint store na `import_checkpoints`
+
+### Admin panel
+- `app/Http/Controllers/Admin/ConnectionController.php` — CRUD + run/stop/logs/stream
+- `app/Console/Commands/RunScheduledConnections.php` — scheduler, full ma priorytet nad partial
+- `app/Jobs/RunConnection.php` — główny job
+
+### Views
+- `resources/views/admin/connections/index.blade.php` — lista + modalne (logi, run mode, delete, kill all)
+- `resources/views/admin/connections/form.blade.php` — formularz edit/create
+- `resources/views/admin/layout.blade.php`
+
+### Models
+- `app/Models/Connection.php` — `scheduleLabel()`, `scheduleFullLabel()`, `nextRunDate()`, `nextFullRunDate()`
+- `app/Models/ConnectionRun.php`
+
+---
+
+## Gmail — szczegóły
+
+### OAuth
+- Token w `oauth_google_tokens` (refresh_token zaszyfrowany Crypt)
+- `app/Support/GmailTokenProvider.php` — pobiera access token
+- `app/Http/Controllers/GoogleOAuthController.php` — flow OAuth
+- Route: `/google/auth/{system}?email=X` → popup OAuth
+
+### Batch API
+- `concurrent_requests > 1`: używa Gmail Batch API (`https://www.googleapis.com/batch/gmail/v1`)
+- `concurrent_requests = 1`: sekwencyjne GET per message (wolniej, bez rate-limit)
+- Parsowanie boundary: regex `/boundary="?([^\s;"]+)/` (single group — PHP unmatched groups = `""` nie `null`)
+
+### Checkpointy
+- Page-token checkpoint: `"gmail|messages|{system}|{email}|{effectiveQuery}"`
+- Partial-since checkpoint: `"gmail|partial_since|{system}|{email}"` → `{last_sync_date: 'YYYY/MM/DD'}`
+
+---
+
+## IMAP — szczegóły
+- `app/Support/ImapConfig.php` — buduje `{host:port/ssl}` string
+- UID search: `UID {N+1}:999999999` zamiast `:*` (RFC 3501 edge case — serwer może zwrócić max UID gdy range zaczyna się powyżej UIDNEXT)
+- Pełna lista mailboxów przez `imap_list` + odfiltrowywanie wykluczonych
+
+---
+
+## Frontend (Alpine.js) — index.blade.php
+
+### Kluczowe komponenty
+- `adminPanel()` — główny komponent: modal logów, kill all, delete confirm, run mode picker
+- `connRow(connId, runId, initialStatus)` — każdy wiersz tabeli, polling statusu
+
+### Ważne fixy w `connectSSE` (było buggy)
+- `const iv = setInterval(...)` + `this.modal.es = iv` — closure na własnym handle
+- Guard na początku callbacku: `if (this.modal.runId != runId) { clearInterval(iv); return; }`
+- `triggerRun` NIE przełącza modalu jeśli jest otwarty (`const openModal = !this.modal.open`)
+- `viewLogs` czyści stary interwał przed nadpisaniem modalu
+
+### Run flow
+1. ▶ Run → `open-run-mode` event → modal wyboru trybu (Partial / Full)
+2. `startRun()` → `triggerRun(connId, name, mode)`
+3. POST `/admin/connections/{id}/run` z `{mode}` w JSON body
+4. `run-started-event` (window event) → connRow aktualizuje badge
+5. `connectSSE(runId)` → polling co 2s → logi w modalu
+
+---
+
+## Baza danych — główne tabele
+
+| Tabela | Opis |
+|--------|------|
+| `connections` | konfiguracja importerów |
+| `connection_runs` | historia uruchomień + logi |
+| `import_checkpoints` | checkpointy (last_uid, last_page_token, partial_since) |
+| `source_gmail_messages` | zaimportowane wiadomości Gmail |
+| `source_imap_messages` | zaimportowane wiadomości IMAP |
+| `source_whmcs_clients` | klienci WHMCS |
+| `source_whmcs_contacts` | kontakty WHMCS |
+| `source_whmcs_services` | usługi WHMCS |
+| `source_whmcs_tickets` | tickety WHMCS |
+| `oauth_google_tokens` | tokeny OAuth Google |
+
+---
+
+## Stan na koniec sesji (2026-02-23)
+
+### Zaimplementowane w tej sesji
+1. **Gmail Batch API** — zastąpił Http::pool() (który dawał 429); chunking po `concurrent_requests`
+2. **Full/Partial sync mode** — dwa harmonogramy na connection, picker w UI, `mode` w job
+3. **Fix UI modal** — 3 bugi: zombie interwał, przeskakiwanie między jobami, błędny clearInterval
+
+### Potencjalne następne zadania (nie zlecone)
+- Testy jednostkowe importerów
+- Dashboard ze statystykami (ile rekordów, kiedy ostatni sync)
+- Retry logic dla failed runs
+- Powiadomienia (email/slack) przy błędach
