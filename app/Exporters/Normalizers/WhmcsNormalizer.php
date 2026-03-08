@@ -143,7 +143,7 @@ class WhmcsNormalizer
 
     /**
      * Yield canonical items from source_whmcs_tickets updated since $sinceAt.
-     * Emits: conversation + message per ticket message.
+     * Emits: conversation + message + activity per ticket message.
      */
     public function normalizeTickets(?string $sinceAt, callable $log): \Generator
     {
@@ -224,6 +224,26 @@ class WhmcsNormalizer
 
             yield [
                 'item'       => ContactMonitorClient::buildItem('whmcs', $this->systemSlug, 'message', 'upsert', $msgId, $msgPayload),
+                'updated_at' => $row->updated_at,
+            ];
+
+            // Emit activity item so this ticket appears in the company Activity timeline
+            $activityPayload = [
+                'activity_type' => 'conversation',
+                'occurred_at'   => $sentAt,
+                'meta'          => [
+                    'channel_type'             => 'ticket',
+                    'system_type'              => 'whmcs',
+                    'system_slug'              => $this->systemSlug,
+                    'conversation_external_id' => "ticket_{$ticketId}",
+                    'subject'                  => $record['title'] ?? "Ticket #{$ticketId}",
+                    'direction'                => $direction,
+                    'sender'                   => $record['sender_name'] ?? null,
+                ],
+            ];
+
+            yield [
+                'item'       => ContactMonitorClient::buildItem('whmcs', $this->systemSlug, 'activity', 'upsert', "ticket_{$ticketId}_msg_{$msgId}", $activityPayload),
                 'updated_at' => $row->updated_at,
             ];
         }
