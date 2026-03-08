@@ -35,6 +35,7 @@ Route::middleware('api.token')->group(function () {
 
     // Connections CRUD
     Route::get('/connections',                        [ConnectionsController::class, 'index']);
+    Route::post('/connections/test',                  [ConnectionsController::class, 'test']);
     Route::post('/connections',                       [ConnectionsController::class, 'store']);
     Route::get('/connections/{connection}',           [ConnectionsController::class, 'show']);
     Route::put('/connections/{connection}',           [ConnectionsController::class, 'update']);
@@ -46,9 +47,6 @@ Route::middleware('api.token')->group(function () {
     Route::post('/connections/{connection}/stop',     [ConnectionsController::class, 'stop']);
     Route::get('/connections/{connection}/runs',      [ConnectionsController::class, 'connectionRuns']);
     Route::post('/kill-all',                          [ConnectionsController::class, 'killAll']);
-
-    // Test credentials
-    Route::post('/connections/test',                  [ConnectionsController::class, 'test']);
 
     // Runs
     Route::get('/runs',                               [ConnectionsController::class, 'runsList']);
