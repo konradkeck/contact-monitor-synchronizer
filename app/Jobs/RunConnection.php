@@ -114,12 +114,13 @@ class RunConnection implements ShouldQueue
     private function runImporter(Connection $connection, callable $log): void
     {
         match ($connection->type) {
-            'whmcs'   => $this->runWhmcs($connection, $log),
-            'gmail'   => $this->runGmail($connection, $log),
-            'imap'    => $this->runImap($connection, $log),
-            'discord' => $this->runDiscord($connection, $log),
-            'slack'   => $this->runSlack($connection, $log),
-            default   => throw new \RuntimeException("Unknown connection type: {$connection->type}"),
+            'whmcs'        => $this->runWhmcs($connection, $log),
+            'gmail'        => $this->runGmail($connection, $log),
+            'imap'         => $this->runImap($connection, $log),
+            'discord'      => $this->runDiscord($connection, $log),
+            'slack'        => $this->runSlack($connection, $log),
+            'metricscube'  => $log('MetricsCube runs automatically as part of its linked WHMCS connection.'),
+            default        => throw new \RuntimeException("Unknown connection type: {$connection->type}"),
         };
     }
 

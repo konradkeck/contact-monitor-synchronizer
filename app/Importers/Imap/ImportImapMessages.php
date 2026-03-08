@@ -12,17 +12,12 @@ class ImportImapMessages
 
     public function __construct(
         private string $account,
-        private string $mailbox    = 'INBOX',
-        private int    $batchSize  = 100,
-        private int    $maxBatches = 0,
+        private array  $excludedMailboxes = [],
+        private int    $batchSize         = 100,
+        private int    $maxBatches        = 0,
+        private string $mode              = 'partial',
     ) {
         $this->checkpoints = new ImportCheckpointStore();
-    }
-
-    public function resetCheckpoint(): void
-    {
-        $key = "imap|messages|{$this->account}|{$this->mailbox}";
-        $this->checkpoints->forget($key);
     }
 
     public function run(callable $log): void
@@ -34,10 +29,33 @@ class ImportImapMessages
         $config    = ImapConfig::fromAccount($this->account);
         $serverRef = ImapConfig::buildServerRef($config);
 
-        $mailboxFull = $serverRef . $this->mailbox;
+        // List all mailboxes on the server
+        $mboxList = @imap_list(
+            imap_open($serverRef, $config['username'], $config['password'], OP_HALFOPEN, 1),
+            $serverRef,
+            '*'
+        );
 
-        $log("--- {$this->mailbox} ---");
-        $this->importMailbox($config, $mailboxFull, $this->mailbox, $log);
+        $mailboxes = [];
+        if ($mboxList) {
+            foreach ($mboxList as $m) {
+                // Strip server prefix to get plain mailbox name
+                $name = substr($m, strlen($serverRef));
+                if (!in_array($name, $this->excludedMailboxes, true)) {
+                    $mailboxes[] = $name;
+                }
+            }
+        }
+
+        // Fallback to INBOX if listing failed
+        if (empty($mailboxes)) {
+            $mailboxes = ['INBOX'];
+        }
+
+        foreach ($mailboxes as $mailbox) {
+            $log("--- {$mailbox} ---");
+            $this->importMailbox($config, $serverRef . $mailbox, $mailbox, $log);
+        }
     }
 
     private function importMailbox(array $config, string $mailboxFull, string $mailbox, callable $log): void
