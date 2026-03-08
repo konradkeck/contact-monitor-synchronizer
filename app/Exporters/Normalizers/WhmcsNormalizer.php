@@ -97,9 +97,10 @@ class WhmcsNormalizer
                 $displayName = trim(($record['firstname'] ?? '') . ' ' . ($record['lastname'] ?? '')) ?: null;
                 yield [
                     'item'       => ContactMonitorClient::buildItem('whmcs', $this->systemSlug, 'identity', 'upsert', $record['email'], array_filter([
-                        'identity_type' => 'email',
-                        'value'         => $record['email'],
-                        'display_name'  => $displayName,
+                        'identity_type'       => 'email',
+                        'value'               => $record['email'],
+                        'display_name'        => $displayName,
+                        'account_external_id' => $clientId,
                     ])),
                     'updated_at' => $row->updated_at,
                 ];
@@ -132,9 +133,10 @@ class WhmcsNormalizer
 
             yield [
                 'item'       => ContactMonitorClient::buildItem('whmcs', $this->systemSlug, 'identity', 'upsert', $record['email'], array_filter([
-                    'identity_type' => 'email',
-                    'value'         => $record['email'],
-                    'display_name'  => $displayName,
+                    'identity_type'       => 'email',
+                    'value'               => $record['email'],
+                    'display_name'        => $displayName,
+                    'account_external_id' => (string) $record['clientid'],
                 ])),
                 'updated_at' => $row->updated_at,
             ];

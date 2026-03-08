@@ -86,6 +86,9 @@ class RunConnection implements ShouldQueue
                     'finished_at'      => now(),
                     'duration_seconds' => $duration,
                 ]);
+
+                // Sync MetricsCube data to Contact Monitor alongside its WHMCS parent
+                SyncToSalesOs::dispatch($siblingRun->connection_id);
             }
 
         } catch (\Throwable $e) {
