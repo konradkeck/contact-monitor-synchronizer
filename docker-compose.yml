@@ -12,6 +12,8 @@ services:
       PHP_CLI_SERVER_WORKERS: 16
     depends_on:
       - db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   worker:
     build: .
@@ -22,6 +24,8 @@ services:
     command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=1", "--max-time=3600"]
     depends_on:
       - db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   scheduler:
@@ -33,6 +37,8 @@ services:
     command: ["sh", "-c", "while true; do php artisan schedule:run --no-interaction; sleep 60; done"]
     depends_on:
       - db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   db:

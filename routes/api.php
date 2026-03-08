@@ -1,9 +1,37 @@
 <?php
 
 use App\Http\Controllers\Api\ConnectionsController;
+use App\Http\Controllers\Api\SettingsController;
 use Illuminate\Support\Facades\Route;
 
+// Registration callback – no auth token required (token validated in body)
+Route::post('/register', function (\Illuminate\Http\Request $req) {
+    $token = $req->input('verify_token');
+    if (!$token || $token !== env('CM_REGISTRATION_TOKEN')) {
+        return response()->json(['ok' => false, 'error' => 'Invalid token'], 403);
+    }
+
+    $cmRegUrl = env('CM_REGISTRATION_URL');
+    if ($cmRegUrl) {
+        try {
+            \Illuminate\Support\Facades\Http::timeout(5)->post($cmRegUrl, [
+                'verify_token' => $token,
+                'api_token'    => env('API_TOKEN'),
+                'url'          => env('APP_URL'),
+            ]);
+        } catch (\Throwable) {}
+    }
+
+    return response()->json(['ok' => true]);
+});
+
 Route::middleware('api.token')->group(function () {
+
+    // Settings
+    Route::get('/settings',    [SettingsController::class, 'show']);
+    Route::put('/settings',    [SettingsController::class, 'update']);
+    Route::post('/run-all',    [SettingsController::class, 'runAll']);
+    Route::post('/reset-runs', [SettingsController::class, 'resetRuns']);
 
     // Connections CRUD
     Route::get('/connections',                        [ConnectionsController::class, 'index']);
