@@ -36,6 +36,19 @@ class Register extends Command
                 ]);
 
                 if ($res->successful() && ($res->json('ok') ?? false)) {
+                    // Persist the per-server ingest secret returned by contact-monitor
+                    $ingestSecret = $res->json('ingest_secret');
+                    if ($ingestSecret) {
+                        $envPath = base_path('.env');
+                        $content = file_get_contents($envPath);
+                        $line    = "CONTACT_MONITOR_INGEST_SECRET={$ingestSecret}";
+                        if (preg_match('/^CONTACT_MONITOR_INGEST_SECRET=.*/m', $content)) {
+                            $content = preg_replace('/^CONTACT_MONITOR_INGEST_SECRET=.*/m', $line, $content);
+                        } else {
+                            $content = rtrim($content) . "\n{$line}\n";
+                        }
+                        file_put_contents($envPath, $content);
+                    }
                     cache()->forever('cm_registered', true);
                     $this->info('✓ Registered successfully.');
                     return 0;
