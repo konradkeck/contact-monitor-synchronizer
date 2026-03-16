@@ -7,9 +7,10 @@ RUN apt-get update && apt-get install -y \
         libc-client-dev \
         libkrb5-dev \
         libxml2-dev \
+        libzip-dev \
         unzip \
         git \
-    && docker-php-ext-install pdo pdo_pgsql dom \
+    && docker-php-ext-install pdo pdo_pgsql dom zip \
     && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
     && docker-php-ext-install imap \
     && rm -rf /var/lib/apt/lists/*
