@@ -86,7 +86,8 @@ class ContactMonitorExporter
     private function exportImap(Connection $connection): void
     {
         $slug       = $connection->system_slug;
-        $normalizer = new ImapNormalizer($slug);
+        $ownerEmail = $connection->settings['username'] ?? null;
+        $normalizer = new ImapNormalizer($slug, $ownerEmail);
 
         $cursor = $this->getCursor($slug, 'imap_messages');
         $this->streamItems($normalizer->normalize($cursor, $this->log), 'imap', $slug, 'imap_messages', $cursor);
@@ -100,6 +101,10 @@ class ContactMonitorExporter
     {
         $slug       = $connection->system_slug;
         $normalizer = new SlackNormalizer($slug);
+
+        // Users → identities (authoritative source for is_bot and profile data)
+        $cursor = $this->getCursor($slug, 'slack_users');
+        $this->streamItems($normalizer->normalizeUsers($cursor, $this->log), 'slack', $slug, 'slack_users', $cursor);
 
         // Channels → conversations
         $cursor = $this->getCursor($slug, 'slack_channels');

@@ -14,10 +14,12 @@ use Illuminate\Support\Facades\DB;
 class ImapNormalizer
 {
     private string $systemSlug;
+    private ?string $ownerEmail;
 
-    public function __construct(string $systemSlug)
+    public function __construct(string $systemSlug, ?string $ownerEmail = null)
     {
         $this->systemSlug = $systemSlug;
+        $this->ownerEmail = $ownerEmail ? strtolower(trim($ownerEmail)) : null;
     }
 
     /**
@@ -25,6 +27,20 @@ class ImapNormalizer
      */
     public function normalize(?string $sinceAt, callable $log): \Generator
     {
+        // ── Mailbox owner identity ─────────────────────────────────────────────
+        if ($this->ownerEmail) {
+            $displayName = $this->detectOwnerDisplayName();
+            yield [
+                'item' => ContactMonitorClient::buildItem('imap', $this->systemSlug, 'identity', 'upsert', $this->ownerEmail, [
+                    'identity_type'    => 'email',
+                    'value'            => $this->ownerEmail,
+                    'display_name'     => $displayName ?: null,
+                    'is_mailbox_owner' => true,
+                ]),
+                'updated_at' => now()->toDateTimeString(),
+            ];
+        }
+
         $query = DB::table('source_imap_messages')
             ->where('account', $this->systemSlug)
             ->orderBy('updated_at');
@@ -289,5 +305,38 @@ class ImapNormalizer
         } catch (\Exception) {
             return null;
         }
+    }
+
+    /**
+     * Try to detect the mailbox owner's display name from sent folder messages.
+     * Looks for a sent-folder message where the From address matches the owner email.
+     */
+    private function detectOwnerDisplayName(): string
+    {
+        $row = DB::table('source_imap_messages')
+            ->where('account', $this->systemSlug)
+            ->whereRaw("LOWER(mailbox) LIKE '%sent%'")
+            ->orderByDesc('updated_at')
+            ->first();
+
+        if (!$row) {
+            return '';
+        }
+
+        $record = json_decode($row->payload_json, true);
+        $from   = $record['from'] ?? '';
+        $name   = $this->extractName($from);
+
+        if ($name) {
+            return $name;
+        }
+
+        // Also check if the owner email appears in the from field at all
+        $fromEmail = $this->extractEmail($from);
+        if ($fromEmail && $fromEmail === $this->ownerEmail) {
+            return '';
+        }
+
+        return '';
     }
 }

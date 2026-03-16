@@ -79,7 +79,6 @@ class DiscordNormalizer
     {
         $query = DB::table('source_discord_members')
             ->where('system_slug', $this->systemSlug)
-            ->where('is_bot', false)
             ->orderBy('updated_at');
 
         if ($sinceAt) {
@@ -92,6 +91,7 @@ class DiscordNormalizer
                 'value'         => $row->user_id,
                 'display_name'  => $row->display_name,
                 'avatar'        => $row->avatar ?? null,
+                'is_bot'        => (bool) $row->is_bot,
             ];
 
             yield [
@@ -176,19 +176,29 @@ class DiscordNormalizer
             $query->where('updated_at', '>', $sinceAt);
         }
 
+        // Build lookup from guild members — authoritative source for display_name and avatar
+        $memberData = DB::table('source_discord_members')
+            ->where('system_slug', $this->systemSlug)
+            ->get(['user_id', 'display_name', 'avatar'])
+            ->keyBy('user_id');
+
+        $memberNames = $memberData->mapWithKeys(fn($r) => [$r->user_id => $r->display_name])->filter()->all();
+
         foreach ($query->cursor() as $row) {
             $payload  = json_decode($row->payload_json, true);
             $authorId = $row->author_id;
             $action   = $row->is_deleted ? 'delete' : 'upsert';
 
-            // Identity hint from author
+            // Identity hint from author — member table is authoritative for display_name and avatar
             if ($authorId && $action === 'upsert') {
                 $author       = $payload['author'] ?? [];
+                $member       = $memberData->get($authorId);
                 $identPayload = [
                     'identity_type' => 'discord_user',
                     'value'         => $authorId,
-                    'display_name'  => $author['global_name'] ?? $author['username'] ?? null,
-                    'avatar'        => $author['avatar'] ?? null,
+                    'display_name'  => $memberNames[$authorId] ?? $author['global_name'] ?? $author['username'] ?? null,
+                    'avatar'        => $member ? $member->avatar : ($author['avatar'] ?? null),
+                    'is_bot'        => !empty($author['bot']),
                 ];
                 yield [
                     'item'       => ContactMonitorClient::buildItem('discord', $this->systemSlug, 'identity', 'upsert', $authorId, $identPayload),
@@ -216,7 +226,7 @@ class DiscordNormalizer
             $convExtId  = $row->channel_id;
             $threadKey  = $row->thread_id ?: null;
             $author     = $payload['author'] ?? [];
-            $authorName = $author['global_name'] ?? $author['username'] ?? $authorId ?? 'Unknown';
+            $authorName = $memberNames[$authorId] ?? $author['global_name'] ?? $author['username'] ?? $authorId ?? 'Unknown';
 
             $msgPayload = [
                 'conversation_external_id'  => $convExtId,

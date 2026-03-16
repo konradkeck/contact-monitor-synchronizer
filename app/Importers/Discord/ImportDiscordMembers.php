@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Http;
  *  2. Authors of messages already recorded in source_discord_messages for those channels.
  *
  * Each discovered user ID is fetched individually via /guilds/{guildId}/members/{userId}.
- * Bots are skipped.
+ * Bots are included and stored with is_bot=true.
  */
 class ImportDiscordMembers
 {
@@ -107,8 +107,8 @@ class ImportDiscordMembers
 
         $user = $member['user'] ?? [];
         if (empty($user['id'])) return false;
-        if (!empty($user['bot']))  return false;
 
+        $isBot       = !empty($user['bot']);
         $username    = $user['username'] ?? null;
         $displayName = $member['nick'] ?? $user['global_name'] ?? $username;
         // Guild avatar takes priority over global user avatar
@@ -121,7 +121,7 @@ class ImportDiscordMembers
             'username'     => $username,
             'display_name' => $displayName,
             'avatar'       => $avatar,
-            'is_bot'       => false,
+            'is_bot'       => $isBot,
             'row_hash'     => hash('sha256', $userId . '|' . $displayName . '|' . $username . '|' . $avatar),
             'fetched_at'   => now(),
             'created_at'   => now(),
@@ -131,7 +131,7 @@ class ImportDiscordMembers
         DB::table('source_discord_members')->upsert(
             [$row],
             ['system_slug', 'guild_id', 'user_id'],
-            ['username', 'display_name', 'avatar', 'row_hash', 'fetched_at', 'updated_at'],
+            ['username', 'display_name', 'avatar', 'is_bot', 'row_hash', 'fetched_at', 'updated_at'],
         );
 
         return true;

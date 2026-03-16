@@ -116,6 +116,38 @@ class SlackNormalizer
     }
 
     /**
+     * Yield identity items from source_slack_users updated since $sinceAt.
+     * This is the authoritative source for is_bot and profile data.
+     */
+    public function normalizeUsers(?string $sinceAt, callable $log): \Generator
+    {
+        $query = DB::table('source_slack_users')
+            ->where('system_slug', $this->systemSlug)
+            ->orderBy('updated_at');
+
+        if ($sinceAt) {
+            $query->where('updated_at', '>', $sinceAt);
+        }
+
+        foreach ($query->cursor() as $row) {
+            // USLACKBOT is Slack's system bot; the API returns is_bot=false for it
+            $isBot = (bool) $row->is_bot || $row->user_id === 'USLACKBOT';
+
+            yield [
+                'item'       => ContactMonitorClient::buildItem('slack', $this->systemSlug, 'identity', 'upsert', $row->user_id, [
+                    'identity_type' => 'slack_user',
+                    'value'         => $row->user_id,
+                    'display_name'  => $row->display_name ?: $row->real_name ?: null,
+                    'email_hint'    => $row->email ?: null,
+                    'avatar'        => $row->avatar_url ?? null,
+                    'is_bot'        => $isBot,
+                ]),
+                'updated_at' => $row->updated_at,
+            ];
+        }
+    }
+
+    /**
      * Yield message (and identity) items from source_slack_messages updated since $sinceAt.
      */
     public function normalizeMessages(?string $sinceAt, callable $log): \Generator
@@ -156,12 +188,14 @@ class SlackNormalizer
                     ->where('user_id', $userId)
                     ->first();
 
+                $senderName   = $userProfile?->display_name ?: $userProfile?->real_name ?: ($payload['username'] ?? null) ?: $userId;
                 $identPayload = [
                     'identity_type' => 'slack_user',
                     'value'         => $userId,
-                    'display_name'  => $userProfile?->display_name ?? $userProfile?->real_name ?? ($payload['username'] ?? null),
+                    'display_name'  => $senderName,
                     'email_hint'    => $userProfile?->email ?? null,
                     'avatar'        => $userProfile?->avatar_url ?? null,
+                    'is_bot'        => (bool) ($userProfile?->is_bot ?? false),
                 ];
                 yield [
                     'item'       => ContactMonitorClient::buildItem('slack', $this->systemSlug, 'identity', 'upsert', $userId, $identPayload),
@@ -190,7 +224,7 @@ class SlackNormalizer
                 'thread_parent_message_id'  => $threadKey,
                 'sender_external_id'        => $userId ?: $botId,
                 'sender_identity_type'      => 'slack_user',
-                'sender_name'               => $payload['username'] ?? ($botId ? 'bot' : ($userId ?: 'Unknown')),
+                'sender_name'               => $senderName ?? ($botId ? 'bot' : ($userId ?: 'Unknown')),
                 'body_text'                 => $row->text,
                 'occurred_at'               => $row->sent_at,
                 'direction_hint'            => 'internal',
