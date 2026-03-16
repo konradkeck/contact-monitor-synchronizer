@@ -32,7 +32,7 @@ class ImportWhmcsServices
 
         while (true) {
             $response = Http::withHeaders(['Authorization' => "Bearer {$token}"])
-                ->get("{$baseUrl}/modules/addons/salesos_synch_api/api.php", [
+                ->get("{$baseUrl}/modules/addons/contact_monitor_for_whmcs/api.php", [
                     'resource' => 'services',
                     'limit'    => 1000,
                     'after_id' => $afterId,

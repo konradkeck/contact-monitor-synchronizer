@@ -344,7 +344,7 @@ class ConnectionController extends Controller
 
         $response = Http::withHeaders(['Authorization' => "Bearer {$token}"])
             ->timeout(10)
-            ->get(rtrim($baseUrl, '/') . '/modules/addons/salesos_synch_api/api.php', [
+            ->get(rtrim($baseUrl, '/') . '/modules/addons/contact_monitor_for_whmcs/api.php', [
                 'resource' => 'clients',
                 'limit'    => 1,
                 'after_id' => 0,

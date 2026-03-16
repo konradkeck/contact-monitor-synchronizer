@@ -33,7 +33,7 @@ class ImportWhmcsTickets
 
         while (true) {
             $response = Http::withHeaders(['Authorization' => "Bearer {$token}"])
-                ->get("{$baseUrl}/modules/addons/salesos_synch_api/api.php", [
+                ->get("{$baseUrl}/modules/addons/contact_monitor_for_whmcs/api.php", [
                     'resource'        => 'tickets',
                     'limit'           => 200,
                     'after_sent_at'   => $afterSentAt,

@@ -231,7 +231,7 @@ class ContactMonitorExporter
     {
         $row = DB::table('import_checkpoints')
             ->where('source_system', $systemSlug)
-            ->where('importer', 'salesos_export')
+            ->where('importer', 'contact_monitor_export')
             ->where('entity', $entity)
             ->first();
 
@@ -255,20 +255,20 @@ class ContactMonitorExporter
 
         $exists = DB::table('import_checkpoints')
             ->where('source_system', $systemSlug)
-            ->where('importer', 'salesos_export')
+            ->where('importer', 'contact_monitor_export')
             ->where('entity', $entity)
             ->exists();
 
         if ($exists) {
             DB::table('import_checkpoints')
                 ->where('source_system', $systemSlug)
-                ->where('importer', 'salesos_export')
+                ->where('importer', 'contact_monitor_export')
                 ->where('entity', $entity)
                 ->update($data);
         } else {
             DB::table('import_checkpoints')->insert(array_merge($data, [
                 'source_system' => $systemSlug,
-                'importer'      => 'salesos_export',
+                'importer'      => 'contact_monitor_export',
                 'entity'        => $entity,
                 'cursor_type'   => 'updated_at',
                 'created_at'    => $now,

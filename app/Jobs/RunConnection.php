@@ -76,7 +76,7 @@ class RunConnection implements ShouldQueue
             $run->markCompleted();
 
             // Sync freshly imported data to Contact Monitor
-            SyncToSalesOs::dispatch($this->connectionId);
+            SyncToContactMonitor::dispatch($this->connectionId);
 
             if ($siblingRun) {
                 $duration = $siblingRun->started_at ? (int) $siblingRun->started_at->diffInSeconds(now()) : null;
@@ -88,7 +88,7 @@ class RunConnection implements ShouldQueue
                 ]);
 
                 // Sync MetricsCube data to Contact Monitor alongside its WHMCS parent
-                SyncToSalesOs::dispatch($siblingRun->connection_id);
+                SyncToContactMonitor::dispatch($siblingRun->connection_id);
             }
 
         } catch (\Throwable $e) {

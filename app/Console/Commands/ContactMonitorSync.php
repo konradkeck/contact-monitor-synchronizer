@@ -60,7 +60,7 @@ class ContactMonitorSync extends Command
     private function resetCursors(?string $slug): void
     {
         $query = \Illuminate\Support\Facades\DB::table('import_checkpoints')
-            ->where('importer', 'salesos_export');
+            ->where('importer', 'contact_monitor_export');
 
         if ($slug) {
             $query->where('source_system', $slug);
