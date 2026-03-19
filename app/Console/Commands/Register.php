@@ -33,6 +33,7 @@ class Register extends Command
                     'verify_token' => $regToken,
                     'api_token'    => env('API_TOKEN'),
                     'url'          => env('APP_URL'),
+                    'install_dir'  => env('INSTALL_DIR'),
                 ]);
 
                 if ($res->successful() && ($res->json('ok') ?? false)) {
