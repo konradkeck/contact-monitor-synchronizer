@@ -7,7 +7,7 @@ services:
       - ./:/app
     command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
     ports:
-      - "8080:8000"
+      - "${APP_PORT:-8080}:8000"
     environment:
       PHP_CLI_SERVER_WORKERS: 16
     depends_on:
@@ -45,13 +45,13 @@ services:
     image: postgres:16
     container_name: contact-monitor-synchronizer_db
     environment:
-      POSTGRES_DB: contact-monitor-synchronizer
-      POSTGRES_USER: contact-monitor-synchronizer
-      POSTGRES_PASSWORD: contact-monitor-synchronizer
+      POSTGRES_DB: ${DB_DATABASE:-contact-monitor-synchronizer}
+      POSTGRES_USER: ${DB_USERNAME:-contact-monitor-synchronizer}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-contact-monitor-synchronizer}
     volumes:
       - contact-monitor-synchronizer_pgdata:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "${DB_EXPOSE_PORT:-5433}:5432"
 
 volumes:
   contact-monitor-synchronizer_pgdata:
