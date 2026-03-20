@@ -314,7 +314,7 @@ class ConnectionController extends Controller
 
         try {
             $message = match ($type) {
-                'whmcs'       => $this->testWhmcs($slug, $settings),
+                'whmcs'       => $this->testWhmcs($slug, $settings, $connectionId ? (int) $connectionId : null),
                 'gmail'       => $this->testGmail($slug, $settings),
                 'imap'        => $this->testImap($slug, $settings),
                 'metricscube' => $this->testMetricscube($slug, $settings),
@@ -330,7 +330,7 @@ class ConnectionController extends Controller
         }
     }
 
-    private function testWhmcs(string $slug, array $settings): string
+    private function testWhmcs(string $slug, array $settings, ?int $connectionId = null): string
     {
         $baseUrl = $settings['base_url'] ?? null;
         $token   = $settings['token'] ?? null;
@@ -342,13 +342,12 @@ class ConnectionController extends Controller
             throw new \RuntimeException('API Token is required.');
         }
 
-        $response = Http::withHeaders(['Authorization' => "Bearer {$token}"])
+        $apiBase = rtrim($baseUrl, '/') . '/modules/addons/contact_monitor_for_whmcs/api.php';
+        $headers = ['Authorization' => "Bearer {$token}"];
+
+        $response = Http::withHeaders($headers)
             ->timeout(10)
-            ->get(rtrim($baseUrl, '/') . '/modules/addons/contact_monitor_for_whmcs/api.php', [
-                'resource' => 'clients',
-                'limit'    => 1,
-                'after_id' => 0,
-            ]);
+            ->get($apiBase, ['resource' => 'clients', 'limit' => 1, 'after_id' => 0]);
 
         if ($response->failed()) {
             throw new \RuntimeException("HTTP {$response->status()}: " . substr($response->body(), 0, 200));
@@ -362,7 +361,36 @@ class ConnectionController extends Controller
 
         $count = count($body['data'] ?? []);
 
-        return "Connected. API returned {$count} client(s) in test page.";
+        // Auto-detect admin_dir and base_url from WHMCS module
+        $adminDir = $settings['admin_dir'] ?? 'admin';
+        $configNote = '';
+        try {
+            $cfgResp = Http::withHeaders($headers)->timeout(5)->get($apiBase, ['resource' => 'config']);
+            if ($cfgResp->successful() && ($cfgResp->json()['ok'] ?? false)) {
+                $cfg      = $cfgResp->json();
+                $adminDir = trim($cfg['admin_dir'] ?? 'admin', '/') ?: 'admin';
+                $detectedBase = rtrim($cfg['base_url'] ?? '', '/');
+
+                // Persist admin_dir (and detected base_url if not yet set) on existing connection
+                if ($connectionId) {
+                    $conn = \App\Models\Connection::find($connectionId);
+                    if ($conn) {
+                        $updatedSettings = $conn->settings ?? [];
+                        $updatedSettings['admin_dir'] = $adminDir;
+                        if ($detectedBase && empty($updatedSettings['base_url'])) {
+                            $updatedSettings['base_url'] = $detectedBase;
+                        }
+                        $conn->update(['settings' => $updatedSettings]);
+                    }
+                }
+
+                $configNote = " Admin dir: {$adminDir}.";
+            }
+        } catch (\Throwable) {
+            // Config fetch is best-effort; don't fail the test
+        }
+
+        return "Connected. API returned {$count} client(s) in test page.{$configNote}";
     }
 
     private function testGmail(string $slug, array $settings): string
@@ -709,6 +737,8 @@ class ConnectionController extends Controller
                     'base_url'  => trim($s['base_url'] ?? ''),
                     // Preserve token if field left blank (edit mode)
                     'token'     => (trim($s['token'] ?? '') !== '') ? trim($s['token']) : ($prev['token'] ?? ''),
+                    // Preserve admin_dir — auto-detected at test/sync time, never overwritten by form
+                    'admin_dir' => $prev['admin_dir'] ?? 'admin',
                     'entities'  => array_values(array_intersect(
                         $s['entities'] ?? [],
                         ['clients', 'contacts', 'services', 'tickets']

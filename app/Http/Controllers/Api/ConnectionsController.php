@@ -315,9 +315,10 @@ class ConnectionsController extends Controller
 
         $settings = match ($base['type']) {
             'whmcs' => [
-                'base_url' => trim($s['base_url'] ?? ''),
-                'token'    => (trim($s['token'] ?? '') !== '') ? trim($s['token']) : ($prev['token'] ?? ''),
-                'entities' => array_values(array_intersect(
+                'base_url'  => trim($s['base_url'] ?? ''),
+                'admin_dir' => trim(trim($s['admin_dir'] ?? 'admin'), '/') ?: 'admin',
+                'token'     => (trim($s['token'] ?? '') !== '') ? trim($s['token']) : ($prev['token'] ?? ''),
+                'entities'  => array_values(array_intersect(
                     $this->toArray($s['entities'] ?? []),
                     ['clients', 'contacts', 'services', 'tickets']
                 )) ?: ['clients', 'contacts', 'services', 'tickets'],

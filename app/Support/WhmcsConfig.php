@@ -24,8 +24,9 @@ class WhmcsConfig
         if (!$token)   throw new \RuntimeException("WHMCS connection '{$system}' is missing token.");
 
         return [
-            'base_url' => $baseUrl,
-            'token'    => $token,
+            'base_url'  => $baseUrl,
+            'admin_dir' => trim(trim($s['admin_dir'] ?? 'admin'), '/') ?: 'admin',
+            'token'     => $token,
         ];
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Importers\Whmcs;
 
 use App\Importers\MetricsCube\ImportMetricsCubeClientActivity;
+use App\Models\Connection;
 use App\Support\MetricsCubeConfig;
 use App\Support\WhmcsConfig;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,9 @@ class ImportWhmcsClients
         $config  = WhmcsConfig::fromSystem($this->system);
         $baseUrl = $config['base_url'];
         $token   = $config['token'];
+
+        // Auto-detect admin_dir from WHMCS module config endpoint and persist it
+        $this->syncAdminDirFromWhmcs($baseUrl, $token, $log);
 
         // MetricsCube is optional — skip gracefully if not configured
         $mcImporter = null;
@@ -123,6 +127,34 @@ class ImportWhmcsClients
 
         if ($mcImporter) {
             $log("MetricsCube: inserted={$mcInserted} updated={$mcUpdated} skipped={$mcSkipped} errors={$mcErrors}");
+        }
+    }
+
+    private function syncAdminDirFromWhmcs(string $baseUrl, string $token, callable $log): void
+    {
+        try {
+            $resp = Http::withHeaders(['Authorization' => "Bearer {$token}"])
+                ->timeout(5)
+                ->get(rtrim($baseUrl, '/') . '/modules/addons/contact_monitor_for_whmcs/api.php', [
+                    'resource' => 'config',
+                ]);
+
+            if (!$resp->successful() || ($resp->json()['ok'] ?? false) !== true) {
+                return;
+            }
+
+            $adminDir = trim($resp->json()['admin_dir'] ?? 'admin', '/') ?: 'admin';
+
+            $conn = Connection::where('type', 'whmcs')->where('system_slug', $this->system)->first();
+            if ($conn) {
+                $settings             = $conn->settings ?? [];
+                $settings['admin_dir'] = $adminDir;
+                $conn->update(['settings' => $settings]);
+            }
+
+            $log("WHMCS config: admin_dir={$adminDir}");
+        } catch (\Throwable) {
+            // Best-effort; don't abort the import if config fetch fails
         }
     }
 
